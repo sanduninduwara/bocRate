@@ -8,6 +8,7 @@ import csv
 import os
 import re
 import sys
+import time
 from datetime import date
 
 try:
@@ -20,18 +21,49 @@ except ImportError:
 URL = "https://www.boc.lk/rates-tariff"
 OUTPUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yen_rates.csv")
 FIELDNAMES = ["date", "buying_rate", "selling_rate"]
+MAX_RETRIES = 5
+RETRY_DELAYS = [5, 15, 30, 60, 120]  # seconds between retries
 
 
 def fetch_jpy_rates():
     headers = {
         "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        )
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
     }
-    resp = requests.get(URL, headers=headers, timeout=15)
-    resp.raise_for_status()
+
+    session = requests.Session()
+    session.headers.update(headers)
+
+    last_exc = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            resp = session.get(URL, timeout=30)
+            resp.raise_for_status()
+            break
+        except requests.exceptions.HTTPError as e:
+            last_exc = e
+            if resp.status_code == 403 and attempt < MAX_RETRIES - 1:
+                delay = RETRY_DELAYS[attempt]
+                print(f"Got 403, retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})...")
+                time.sleep(delay)
+            else:
+                raise
+        except requests.exceptions.RequestException as e:
+            last_exc = e
+            if attempt < MAX_RETRIES - 1:
+                delay = RETRY_DELAYS[attempt]
+                print(f"Request failed ({e}), retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})...")
+                time.sleep(delay)
+            else:
+                raise
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
