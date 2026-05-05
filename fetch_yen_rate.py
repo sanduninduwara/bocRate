@@ -6,6 +6,7 @@ Running on the same day overwrites the existing entry for that day.
 
 import csv
 import os
+import random
 import re
 import sys
 import time
@@ -37,6 +38,12 @@ def fetch_jpy_rates():
         "Accept-Encoding": "gzip, deflate, br",
         "Connection": "keep-alive",
         "Upgrade-Insecure-Requests": "1",
+        "Referer": "https://www.boc.lk/",
+        "DNT": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Cache-Control": "max-age=0",
     }
 
     session = requests.Session()
@@ -45,22 +52,22 @@ def fetch_jpy_rates():
     last_exc = None
     for attempt in range(MAX_RETRIES):
         try:
-            resp = session.get(URL, timeout=30)
+            resp = session.get(URL, timeout=30, allow_redirects=True)
             resp.raise_for_status()
             break
         except requests.exceptions.HTTPError as e:
             last_exc = e
             if resp.status_code == 403 and attempt < MAX_RETRIES - 1:
-                delay = RETRY_DELAYS[attempt]
-                print(f"Got 403, retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})...")
+                delay = RETRY_DELAYS[attempt] + random.uniform(0, 5)
+                print(f"Got 403, retrying in {delay:.1f}s (attempt {attempt + 1}/{MAX_RETRIES})...")
                 time.sleep(delay)
             else:
                 raise
         except requests.exceptions.RequestException as e:
             last_exc = e
             if attempt < MAX_RETRIES - 1:
-                delay = RETRY_DELAYS[attempt]
-                print(f"Request failed ({e}), retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})...")
+                delay = RETRY_DELAYS[attempt] + random.uniform(0, 5)
+                print(f"Request failed ({e}), retrying in {delay:.1f}s (attempt {attempt + 1}/{MAX_RETRIES})...")
                 time.sleep(delay)
             else:
                 raise
