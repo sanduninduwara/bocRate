@@ -13,10 +13,10 @@ import time
 from datetime import date
 
 try:
-    import requests
+    from curl_cffi import requests
     from bs4 import BeautifulSoup
 except ImportError:
-    print("Missing dependencies. Run: pip install requests beautifulsoup4")
+    print("Missing dependencies. Run: pip install curl-cffi beautifulsoup4")
     sys.exit(1)
 
 URL = "https://www.boc.lk/rates-tariff"
@@ -27,39 +27,19 @@ RETRY_DELAYS = [5, 15, 30, 60, 120]  # seconds between retries
 
 
 def fetch_jpy_rates():
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Referer": "https://www.boc.lk/",
-        "DNT": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Cache-Control": "max-age=0",
-    }
-
     session = requests.Session()
-    session.headers.update(headers)
 
     last_exc = None
     for attempt in range(MAX_RETRIES):
         try:
-            resp = session.get(URL, timeout=30, allow_redirects=True)
+            resp = session.get(URL, impersonate="chrome124", timeout=30)
             resp.raise_for_status()
             break
         except requests.exceptions.HTTPError as e:
             last_exc = e
-            if resp.status_code == 403 and attempt < MAX_RETRIES - 1:
+            if attempt < MAX_RETRIES - 1:
                 delay = RETRY_DELAYS[attempt] + random.uniform(0, 5)
-                print(f"Got 403, retrying in {delay:.1f}s (attempt {attempt + 1}/{MAX_RETRIES})...")
+                print(f"Got {resp.status_code}, retrying in {delay:.1f}s (attempt {attempt + 1}/{MAX_RETRIES})...")
                 time.sleep(delay)
             else:
                 raise

@@ -22,7 +22,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4
+        run: pip install curl-cffi beautifulsoup4
 
       - name: Fetch YEN rate
         run: python fetch_yen_rate.py
